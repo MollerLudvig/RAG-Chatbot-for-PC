@@ -55,7 +55,9 @@ def main():
 
         # Get and use relevant documents if needed
         relevant_docs = vector_embedder.retrieve(question, n=3, collection=collection)
-        user_content = f"Here are some relevant documents:\n{relevant_docs}\n\nQuestion: {question}"
+        user_content = f"Question: {question}\n\n"
+        if relevant_docs:
+            user_content = f"Here are some relevant documents:\n{relevant_docs}\n\nQuestion: {question}"
 
         messages = [
                 {"role": "system", "content": system},
