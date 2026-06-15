@@ -6,7 +6,7 @@ def get_collection(db_location="db"):
     client = chromadb.PersistentClient(path=db_location)
     return client.get_or_create_collection(name="documents")
 
-def embed_data(dir="C:/Users/molle/Desktop", file_types=[".txt"], files_not_included=["AI Usage", "AI master prompts"], collection=None):
+def embed_data(dir="C:/Users/Ludvig/Desktop", file_types=[".txt"], files_not_included=["AI Usage", "AI master prompts"], collection=None):
     
     # Get already embedded filenames from db
     existing = collection.get()["ids"]
