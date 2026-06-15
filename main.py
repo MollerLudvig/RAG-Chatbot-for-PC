@@ -2,8 +2,9 @@ from tkinter.messagebox import YES
 
 import ollama
 import vector_embedder
-import tools
 
+import tools
+import speech2text
 
 def chat(messages: list, model: str = "llama3.1:8b", provider: str = "ollama") -> str:
     if provider == "ollama":
@@ -40,14 +41,23 @@ def main():
     - For casual conversation, respond naturally. Never mention JSON, tools, documents, or functions in your responses unless directly asked about them.
     - For document questions, summarize relevant documents and reference the filename
     - For tool requests, use the available tools
-    - Keep responses concise"""
+    - Keep responses concise
+    
+    For tools:
+    - When I listen to music I do so on spotify
+    - When I need to take notes quickly I do so in notepad
+    - When using the press_key_combination tool, respond with JSON and with the keys in a string separated by commas
+    - When i say "italian" you should press keycombination "alt i" 
+    - When i say "normal" you should press keycombination "alt y" """
     
     chat_history = []
     collection = vector_embedder.get_collection()
     vector_embedder.embed_data(collection=collection)
 
     while True:
+        # Threading to check both for voice input and text input?
         print("\n\n-------------------------------")
+        # question = speech2text.speech2text()
         question = input("Ask your question (q to quit): ")
         print("\n\n")
         if question == "q":
