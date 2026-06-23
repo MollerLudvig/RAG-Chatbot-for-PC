@@ -2,7 +2,6 @@ import subprocess
 import webbrowser
 import inspect
 import pyautogui
-import re
 
 tool_registry = []
 tool_functions = {}
