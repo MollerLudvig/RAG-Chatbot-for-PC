@@ -3,11 +3,21 @@ from tkinter.messagebox import YES
 import ollama
 import vector_embedder
 
+import tools
+import speech2text
 
 def chat(messages: list, model: str = "llama3.1:8b", provider: str = "ollama") -> str:
     if provider == "ollama":
-        response = ollama.chat(model=model, messages=messages)
-        return response["message"]["content"]
+        response = ollama.chat(model=model, messages=messages, tools=tools.tool_registry)
+        return response["message"]
+    
+        # # httpx version - llama expects pretty much just a dict with the same entires as the .chat method
+
+        # payload = {"model": model, "messages": messages, "tools": tools.tool_registry, "stream": False}
+        # response = httpx.post("http://localhost:11434/api/chat", json=payload)
+        # return response.json()["message"]
+
+        # # Then just parse the resulting dict and its "content" and "tool_calls" entries
     
     elif provider == "anthropic":
         pass
@@ -27,49 +37,61 @@ def needs_retrieval(question):
     return "YES" in response["message"]["content"].upper()
 
 def main():
-    # System prompt that currently instructs to reference and answer only about the retrieved documents
-    # Can be modified to act more as a helpful assistant rather than just a document retriever and summarizer
+    system = """You are a helpful personal assistant with access to the user's documents and tools.
+    - For casual conversation, respond naturally. Never mention JSON, tools, documents, or functions in your responses unless directly asked about them.
+    - For document questions, summarize relevant documents and reference the filename
+    - For tool requests, use the available tools
+    - Keep responses concise
     
-    system = """You are a personal document assistant. Your job is to help the user find and summarize information from their personal files.
-
-    RULES:
-    - When answering from documents, always reference the exact filename you got the information from
-    - Summarize what is in the document concisely, do not elaborate beyond what is written
-    - Do not add information that is not in the provided documents
-    - If no documents are provided or relevant, answer briefly from general knowledge
-    - If you don't know, say so directly without padding"""
-
+    For tools:
+    - When I listen to music I do so on spotify
+    - When I need to take notes quickly I do so in notepad
+    - When using the press_key_combination tool, respond with JSON and with the keys in a string separated by commas
+    - When i say "italian" you should press keycombination "alt i" 
+    - When i say "normal" you should press keycombination "alt y" """
+    
     chat_history = []
-
     collection = vector_embedder.get_collection()
     vector_embedder.embed_data(collection=collection)
 
     while True:
-
-        # Ask user for prompt
+        # Threading to check both for voice input and text input?
         print("\n\n-------------------------------")
+        # question = speech2text.speech2text()
         question = input("Ask your question (q to quit): ")
         print("\n\n")
         if question == "q":
             break
 
-        # Get and use relevant documents if needed
-        relevant_docs = vector_embedder.retrieve(question, n=3, collection=collection)
-        user_content = f"Question: {question}\n\n"
+        relevant_docs = vector_embedder.retrieve(question, collection=collection)
+        
         if relevant_docs:
-            user_content = f"Here are some relevant documents:\n{relevant_docs}\n\nQuestion: {question}"
+            docs_string = "\n\n".join(relevant_docs)
+            user_content = f"Here are some relevant documents:\n{docs_string}\n\nQuestion: {question}"
+        else:
+            user_content = question
 
         messages = [
-                {"role": "system", "content": system},
-                *chat_history,
-                {"role": "user", "content": user_content}
-            ]
-        result = chat(messages)
+            {"role": "system", "content": system},
+            *chat_history,
+            {"role": "user", "content": user_content}
+        ]
 
-        chat_history.append({"role": "user", "content": question})
-        chat_history.append({"role": "assistant", "content": result})
+        response = chat(messages)
 
-        print(result)
+        # check if tool call or normal response
+        if response.get("tool_calls"):
+            for tool_call in response["tool_calls"]:
+                name = tool_call["function"]["name"]
+                args = tool_call["function"].get("arguments", {})
+                tools.tool_functions[name](**args)
+                print(f"Executed tool: {name}")
+
+        else:
+            result = response["content"]
+            chat_history.append({"role": "user", "content": question})
+            chat_history.append({"role": "assistant", "content": result})
+            print(result)
 
 if __name__ == "__main__":
     main()
